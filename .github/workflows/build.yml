@@ -7,6 +7,7 @@ on:
     tags:
       - "v*.*.*"
   pull_request:
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -45,6 +46,10 @@ jobs:
           distribution: 'temurin'
           java-version: 17
           cache: 'maven'
+      - name: Publish package
+        run: mvn --batch-mode deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build with Maven
         run: mvn -Pjava -B package
       - name: Upload binary to artifacts

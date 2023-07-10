@@ -29,6 +29,13 @@
         <url>https://www.eclipse.org/winery</url>
     </organization>
     <inceptionYear>2012</inceptionYear>
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/OpenTOSCA/winery</url>
+        </repository>
+    </distributionManagement>
     <mailingLists>
         <mailingList>
             <name>Winery Developer List</name>
