@@ -24,6 +24,12 @@
         <button class="btn btn-sm align-middle btn-info button-group" (click)="openManagementUi()">
             Manage
         </button>
+        
+        <!--TODO Send the topology to the bloqcat service-->
+        <button class="btn btn-sm align-middle btn-info button-group" (click)="openManagementUi()">
+            Deploy
+        </button>
+
         <div *ngIf="backendService.configuration.elementPath != 'graficprmmodelling'">
             <div class="btn-group button-group" data-toggle="buttons">
                 <button class="btn btn-sm align-middle dark-button-style"
