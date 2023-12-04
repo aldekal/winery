@@ -362,6 +362,21 @@ export class NavbarComponent implements OnDestroy {
     }
 
     /**
+     * Calls the BackendService's saveTopologyTemplate method and displays a success message if successful.
+     */
+    showSolutionLanguage() {
+
+        // 1: retrieve solution language from backend <-> retrive the corresponding concrete solution(s) from the qc atlas
+        //this.currentTopologyTemplate.nodeTemplates.forEach(nodeTemplate => {
+        // Einen Liste von Nodes foreach Node hole dir die CS und save in Liste
+        // Convert each CS to to an XML Nodetype Definition to send it as request body to the winery API
+
+        // http://localhost:8080/winery/servicetemplates/http%253A%252F%252Fwww.example.org%252Ftosca%252Fservicetemplates/bla_w1-wip1/topologytemplate
+        // 2: send a PUT request to the winery API with the Topology
+
+    }
+
+    /**
      * Angular lifecycle event.
      */
     ngOnDestroy() {
