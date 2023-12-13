@@ -24,13 +24,9 @@ import { Hotkey, HotkeysService } from 'angular2-hotkeys';
 import { TopologyRendererState } from '../redux/reducers/topologyRenderer.reducer';
 import { WineryActions } from '../redux/actions/winery.actions';
 import { StatefulAnnotationsService } from '../services/statefulAnnotations.service';
-import {
-    FeatureEnum
-} from '../../../../tosca-management/src/app/wineryFeatureToggleModule/wineryRepository.feature.direct';
-import {
-    WineryRepositoryConfigurationService
-} from '../../../../tosca-management/src/app/wineryFeatureToggleModule/WineryRepositoryConfiguration.service';
-import { TTopologyTemplate } from '../models/ttopology-template';
+import { FeatureEnum } from '../../../../tosca-management/src/app/wineryFeatureToggleModule/wineryRepository.feature.direct';
+import { WineryRepositoryConfigurationService } from '../../../../tosca-management/src/app/wineryFeatureToggleModule/WineryRepositoryConfiguration.service';
+import { TNodeTemplate, TTopologyTemplate, TArtifact } from '../models/ttopology-template';
 import { OverlayService } from '../services/overlay.service';
 import { BsModalRef } from 'ngx-bootstrap';
 import { TopologyService } from '../services/topology.service';
@@ -38,6 +34,15 @@ import { VersionSliderService } from '../version-slider/version-slider.service';
 import { CheService } from '../services/che.service';
 import { TopologyModelerConfiguration } from '../models/topologyModelerConfiguration';
 import { EntityTypesModel } from '../models/entityTypesModel';
+import { HttpClient } from '@angular/common/http';
+import { PatternDto } from './pattern-dto';
+import { ConcreteSolutionDto } from './concrete-solution-dto';
+import { Visuals } from '../models/visuals';
+import { CapabilityModel } from '../models/capabilityModel';
+import { RequirementModel } from '../models/requirementModel';
+import { TPolicy } from '../models/policiesModalData';
+import { NodeTemplateInstanceStates } from '../models/enums';
+import { DifferenceStates } from '../models/ToscaDiff';
 
 /**
  * The navbar of the topologymodeler.
@@ -76,11 +81,15 @@ export class NavbarComponent implements OnDestroy {
     configEnum = FeatureEnum;
     unsavedChanges: boolean;
     modalRef: BsModalRef;
+    patterns: PatternDto[];
+    concreteSolutions: ConcreteSolutionDto[];
+    patternsAndIds: Map<string, string>;
 
     @ViewChild('exportCsarButton')
     private exportCsarButtonRef: ElementRef;
     @ViewChild('confirmModal')
     private confirmModalRef: TemplateRef<any>;
+    private http: HttpClient;
 
     constructor(private alert: ToastrService,
                 private ngRedux: NgRedux<IWineryState>,
@@ -361,19 +370,179 @@ export class NavbarComponent implements OnDestroy {
             });
     }
 
+    debug() {
+        console.log(this.currentTopologyTemplate);
+        console.log(this.currentTopologyTemplate.nodeTemplates);
+        console.log(this.currentTopologyTemplate.relationshipTemplates);
+    }
+
     /**
-     * Calls the BackendService's saveTopologyTemplate method and displays a success message if successful.
+     * Use this Methode if you want to define NodeTypes for the concrete solutions.
+     * 
      */
-    showSolutionLanguage() {
+    private async loadSolutionLanguage() {
+        let url = 'http://localhost:6626/atlas/concrete-solutions';
+        this.getConcreteSolutions(url);
+        console.log(this.concreteSolutions);
+        url = "http://localhost:8080/winery/nodetypes/";
+        const namespace = 'https://bloqcat.github.io/tosca/nodetypes/css';
+        for (const solution of this.concreteSolutions) {
+            let requestBody = {
+                localname: solution.id,
+                namespace: namespace
+            };
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                const data = await response.text();
+                console.log('POST successful:', data);
+            } catch (error) {
+                console.error('Error during POST request:', error);
+            }
+        }
+    }
 
-        // 1: retrieve solution language from backend <-> retrive the corresponding concrete solution(s) from the qc atlas
-        //this.currentTopologyTemplate.nodeTemplates.forEach(nodeTemplate => {
-        // Einen Liste von Nodes foreach Node hole dir die CS und save in Liste
-        // Convert each CS to to an XML Nodetype Definition to send it as request body to the winery API
+    /**
+     * TODO Docu.
+     */
+    generateSolutionLanguage() {
+        this.overlayService.showOverlay('Pulling the Solution Language. This may take a while.');
+        this.patterns = [];
+        this.patternsAndIds = new Map();
+        // Check if currentTopologyTemplate and its nodeTemplates are defined
+        if (this.currentTopologyTemplate && this.currentTopologyTemplate.nodeTemplates) {
+            this.currentTopologyTemplate.nodeTemplates.forEach((nodeTemplate) => {
+                this.patternsAndIds.set(this.normalizePatternName(nodeTemplate.id), null);
+            });
+        } else {
+            console.log("currentTopologyTemplate or nodeTemplates is undefined");
+        }
+        // Fetch the data from the Pattern Atlas
+        let url: string;
+        url = 'http://localhost:1977/patternatlas/patternLanguages/af7780d5-1f97-4536-8da7-4194b093ab1d/patterns';
+        this.getPatternsData(url);
+        //console.log(this.patternsAndIds);
+        this.patterns.forEach(pattern => {
+            if (this.patternsAndIds.has(pattern.name)){
+                this.patternsAndIds.set(pattern.name, pattern.id);
+            }
+        });
+        //console.log(this.patternsAndIds);
+        
+        url = 'http://localhost:6626/atlas/patterns/{patternId}/concrete-solutions'
+        this.patternsAndIds.forEach((value, key) => {
+            console.log('processing', key,  value);
+            // Use direct string replacement for {patternId}
+            let updatedUrl = url.replace('{patternId}', value);
+            //console.log('Updated URL: ' + updatedUrl);
+            
+            if(this.concreteSolutions) {
+                this.concreteSolutions = [];
+            }
+            this.getConcreteSolutions(updatedUrl);
+            console.log(this.concreteSolutions);
+            this.concreteSolutions.forEach(concreteSolution => {
+                let tNodetemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution);
+                console.log(tNodetemplate);
+                this.currentTopologyTemplate.nodeTemplates.push(tNodetemplate);
+            });
+        });
+        this.saveTopologyTemplateToRepository();
+    }
 
-        // http://localhost:8080/winery/servicetemplates/http%253A%252F%252Fwww.example.org%252Ftosca%252Fservicetemplates/bla_w1-wip1/topologytemplate
-        // 2: send a PUT request to the winery API with the Topology
+    private createTNodeTemplate(concreteSolution: ConcreteSolutionDto): TNodeTemplate {
+        const properties = {
+            propertyType: "KV",
+            namespace: "http://www.example.org",
+            elementName: "Properties",
+            kvproperties: {
+                QubitCount: concreteSolution.qubitCount,
+                hasHeader : concreteSolution.hasHeader,
+                start_Pattern: concreteSolution.startPattern,
+                End_Pattern: concreteSolution.endPattern,
+                hasMeasurement: concreteSolution.hasMeasurment
+            }
+        }; // Define how to randomly generate properties
+        const id: string = concreteSolution.id;
+        const type: string = "{https://bloqcat.github.io/tosca/nodetypes/css}" + concreteSolution.id;
+        const name: string = concreteSolution.id;
+        const minInstances: number = 1;
+        const maxInstances: number = 1;
+        const visuals = new Visuals("#625697", type); // Assuming Visuals is a class you can instantiate
+        
+        const x: number = 300;
+        const y: number = 700;
+        const documentation: any[] = [];
+        const otherAttributes = {}; // or appropriate initial value
+        const any: any[] = []; // or appropriate initial value
+        const capabilities: CapabilityModel[] = []; // Populate as needed
+        const requirements: RequirementModel[] = []; // Populate as needed
+        const deploymentArtifacts: any[] = []; // Populate as needed
+        const policies: Array<TPolicy> = []; // Populate as needed
+        const artifacts: Array<TArtifact> = []; // Populate as needed
+        const instanceState: NodeTemplateInstanceStates = NodeTemplateInstanceStates.CREATED;
+        const valid: boolean = true;
+        const working: boolean = false;
+        const _state: DifferenceStates = DifferenceStates.ADDED;
+        
+        return new TNodeTemplate(properties, id, type, name, minInstances, maxInstances,
+            visuals, documentation, any, otherAttributes, x, y, capabilities,
+            requirements, deploymentArtifacts, policies, artifacts, instanceState, valid, working, _state);
 
+    }
+    
+    /**
+     * Function to normalize pattern names
+     * @param patternName
+     * @private
+     */
+    private normalizePatternName(patternName: string) {
+        // Remove the trailing identifier (e.g., "_w1-wip1")
+        let cleanName = patternName.replace(/_.*/, '');
+
+        // Insert spaces before capital letters, excluding the first character
+        cleanName = cleanName.replace(/([A-Z])/g, ' $1').trim();
+
+        // Ensure the first character is uppercase
+        return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+    }
+    
+    
+    /**
+     * Creating a synchronous HTTP request
+     * @param url
+     * @private
+     */
+    private getPatternsData(url: string) {
+        let request = new XMLHttpRequest();
+        request.open('GET', url, false); // false for synchronous request
+        request.send(null);
+
+        if (request.status === 200) {
+            this.patterns = JSON.parse(request.responseText)._embedded.patternModels;
+        } else {
+            console.error('Request failed: ' + request.statusText);
+        }
+    }
+
+    private getConcreteSolutions(url: string) {
+        let request = new XMLHttpRequest();
+        request.open('GET', url, false); // false for synchronous request
+        request.send(null);
+        
+        if (request.status === 200) {
+            this.concreteSolutions = JSON.parse(request.responseText).content;
+        } else {
+            console.error('Request failed: ' + request.statusText);
+        }
     }
 
     /**
