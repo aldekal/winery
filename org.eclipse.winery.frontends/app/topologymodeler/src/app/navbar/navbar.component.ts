@@ -26,7 +26,7 @@ import { WineryActions } from '../redux/actions/winery.actions';
 import { StatefulAnnotationsService } from '../services/statefulAnnotations.service';
 import { FeatureEnum } from '../../../../tosca-management/src/app/wineryFeatureToggleModule/wineryRepository.feature.direct';
 import { WineryRepositoryConfigurationService } from '../../../../tosca-management/src/app/wineryFeatureToggleModule/WineryRepositoryConfiguration.service';
-import { TNodeTemplate, TTopologyTemplate, TArtifact } from '../models/ttopology-template';
+import { TNodeTemplate, TTopologyTemplate, TArtifact, TRelationshipTemplate } from '../models/ttopology-template';
 import { OverlayService } from '../services/overlay.service';
 import { BsModalRef } from 'ngx-bootstrap';
 import { TopologyService } from '../services/topology.service';
@@ -84,6 +84,7 @@ export class NavbarComponent implements OnDestroy {
     patterns: PatternDto[];
     concreteSolutions: ConcreteSolutionDto[];
     patternsAndIds: Map<string, string>;
+    private static idCounter: number = 0;
 
     @ViewChild('exportCsarButton')
     private exportCsarButtonRef: ElementRef;
@@ -414,7 +415,8 @@ export class NavbarComponent implements OnDestroy {
      * TODO Docu.
      */
     generateSolutionLanguage() {
-        this.overlayService.showOverlay('Pulling the Solution Language. This may take a while.');
+        let index = 0;
+        this.overlayService.showOverlay('Generating the Solution Language. This may take a while.');
         this.patterns = [];
         this.patternsAndIds = new Map();
         // Check if currentTopologyTemplate and its nodeTemplates are defined
@@ -442,20 +444,43 @@ export class NavbarComponent implements OnDestroy {
             console.log('processing', key,  value);
             // Use direct string replacement for {patternId}
             let updatedUrl = url.replace('{patternId}', value);
-            //console.log('Updated URL: ' + updatedUrl);
             
             if(this.concreteSolutions) {
                 this.concreteSolutions = [];
             }
+            
+            //get the concrete solutions of specific pattern
             this.getConcreteSolutions(updatedUrl);
-            console.log(this.concreteSolutions);
+            //console.log(this.concreteSolutions);
+            const conName = key +"_latest-w1-wip1";
+            //let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates.find(node => node.name === name);
+            let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates[0];
             this.concreteSolutions.forEach(concreteSolution => {
-                let tNodetemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution);
-                console.log(tNodetemplate);
-                this.currentTopologyTemplate.nodeTemplates.push(tNodetemplate);
+                // create Node
+                let sourceTNodeTemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution);
+                this.currentTopologyTemplate.nodeTemplates.push(sourceTNodeTemplate);
+                // create Relationship between created node and its pattern
+                let tRelationshipTemplate: TRelationshipTemplate = this.createTRelationshipTemplate(sourceTNodeTemplate, targetTNodeTemplate, index++);
+                this.currentTopologyTemplate.relationshipTemplates.push(tRelationshipTemplate);
+                
             });
         });
         this.saveTopologyTemplateToRepository();
+    }
+
+    private createTRelationshipTemplate(sourceTNodeTemplate: TNodeTemplate, targetTNodeTemplate: TNodeTemplate, index: number): TRelationshipTemplate {
+        const sourceElement = {ref: sourceTNodeTemplate.id};
+        const targetElement = {ref: targetTNodeTemplate.id};
+        const name: string = "ConcreteSolution";
+        const id: string = `con_ConcreteSolution_${index}`;
+        const type: string = "{https://bloqcat.github.io/tosca/relationshiptypes}ConcreteSolution";
+        const properties: any = {};
+        const documentation: any[] = [];
+        const any: any[] = []; // or appropriate initial value
+        const otherAttributes = {}; // or appropriate initial value
+        const state: DifferenceStates = DifferenceStates.ADDED;
+        
+        return new TRelationshipTemplate(sourceElement, targetElement, name, id, type, properties, documentation, any, otherAttributes, state);
     }
 
     private createTNodeTemplate(concreteSolution: ConcreteSolutionDto): TNodeTemplate {
@@ -476,7 +501,7 @@ export class NavbarComponent implements OnDestroy {
         const name: string = concreteSolution.id;
         const minInstances: number = 1;
         const maxInstances: number = 1;
-        const visuals = new Visuals("#625697", type); // Assuming Visuals is a class you can instantiate
+        const visuals = new Visuals("#2602fa", type); // Assuming Visuals is a class you can instantiate
         
         const x: number = 300;
         const y: number = 700;
