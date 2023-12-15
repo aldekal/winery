@@ -416,6 +416,7 @@ export class NavbarComponent implements OnDestroy {
      */
     generateSolutionLanguage() {
         let index = 0;
+        let i = 0;
         this.overlayService.showOverlay('Generating the Solution Language. This may take a while.');
         this.patterns = [];
         this.patternsAndIds = new Map();
@@ -451,13 +452,11 @@ export class NavbarComponent implements OnDestroy {
             
             //get the concrete solutions of specific pattern
             this.getConcreteSolutions(updatedUrl);
-            //console.log(this.concreteSolutions);
-            const conName = key +"_latest-w1-wip1";
-            //let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates.find(node => node.name === name);
-            let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates[0];
+            
+            let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates[i++];
             this.concreteSolutions.forEach(concreteSolution => {
                 // create Node
-                let sourceTNodeTemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution);
+                let sourceTNodeTemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution, targetTNodeTemplate, key);
                 this.currentTopologyTemplate.nodeTemplates.push(sourceTNodeTemplate);
                 // create Relationship between created node and its pattern
                 let tRelationshipTemplate: TRelationshipTemplate = this.createTRelationshipTemplate(sourceTNodeTemplate, targetTNodeTemplate, index++);
@@ -483,7 +482,7 @@ export class NavbarComponent implements OnDestroy {
         return new TRelationshipTemplate(sourceElement, targetElement, name, id, type, properties, documentation, any, otherAttributes, state);
     }
 
-    private createTNodeTemplate(concreteSolution: ConcreteSolutionDto): TNodeTemplate {
+    private createTNodeTemplate(concreteSolution: ConcreteSolutionDto, targetTNodeTemplate: TNodeTemplate, pattern: string): TNodeTemplate {
         const properties = {
             propertyType: "KV",
             namespace: "http://www.example.org",
@@ -498,13 +497,17 @@ export class NavbarComponent implements OnDestroy {
         }; // Define how to randomly generate properties
         const id: string = concreteSolution.id;
         const type: string = "{https://bloqcat.github.io/tosca/nodetypes/css}" + concreteSolution.id;
-        const name: string = concreteSolution.id;
+        const name: string = "Concrete Solution of " + pattern;
         const minInstances: number = 1;
         const maxInstances: number = 1;
-        const visuals = new Visuals("#2602fa", type); // Assuming Visuals is a class you can instantiate
+        const visuals: Visuals = new Visuals(
+            "#2602fa",
+            type,
+            null,
+            "http://localhost:8080/winery/nodetypes/https%253A%252F%252Fbloqcat.github.io%252Ftosca%252Fnodetypes%252Fscc/bloqcat_latest-w1-wip1/appearance/50x50");
         
-        const x: number = 300;
-        const y: number = 700;
+        const x: number = targetTNodeTemplate.x;
+        const y: number = targetTNodeTemplate.y + 200;
         const documentation: any[] = [];
         const otherAttributes = {}; // or appropriate initial value
         const any: any[] = []; // or appropriate initial value
