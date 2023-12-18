@@ -72,7 +72,8 @@ export class NavbarComponent implements OnDestroy {
 
     navbarButtonsState: TopologyRendererState;
     currentTopologyTemplate: TTopologyTemplate;
-    currentTopologyTemplateBeforGernerationOfSolutionLanguage: TTopologyTemplate;
+    backupNodeTemplates: Array<TNodeTemplate>;
+    backupRelationshipTemplates: Array<TRelationshipTemplate>;
     subscriptions: Array<Subscription> = [];
     exportCsarUrl: string;
     splittingOngoing: boolean;
@@ -413,64 +414,26 @@ export class NavbarComponent implements OnDestroy {
         }
     }
 
-    /**
-     * TODO Docu.
-     */
-    generateSolutionLanguage() {
-        let index = 0;
-        let i = 0;
-        this.overlayService.showOverlay('Generating the Solution Language. This may take a while.');
-        this.patterns = [];
-        this.patternsAndIds = new Map();
-        // Check if currentTopologyTemplate and its nodeTemplates are defined
-        if (this.currentTopologyTemplate && this.currentTopologyTemplate.nodeTemplates) {
-            this.currentTopologyTemplate.nodeTemplates.forEach((nodeTemplate) => {
-                this.patternsAndIds.set(this.normalizePatternName(nodeTemplate.id), null);
-            });
+    regenerateSolutionLanguage(): void {
+        if (this.alreadyGeneratedSolutionLanguage) {
+            this.restoreTemplateState();
+            this.alreadyGeneratedSolutionLanguage = false;
+            this.generateSolutionLanguage(); 
         } else {
-            console.log("currentTopologyTemplate or nodeTemplates is undefined");
+            console.log('Error while regeneration of solution language!')
         }
-        // Fetch the data from the Pattern Atlas
-        let url: string;
-        url = 'http://localhost:1977/patternatlas/patternLanguages/af7780d5-1f97-4536-8da7-4194b093ab1d/patterns';
-        this.getPatternsData(url);
-        //console.log(this.patternsAndIds);
-        this.patterns.forEach(pattern => {
-            if (this.patternsAndIds.has(pattern.name)){
-                this.patternsAndIds.set(pattern.name, pattern.id);
-            }
-        });
-        //console.log(this.patternsAndIds);
-        
-        url = 'http://localhost:6626/atlas/patterns/{patternId}/concrete-solutions'
-        this.patternsAndIds.forEach((value, key) => {
-            console.log('processing', key,  value);
-            // Use direct string replacement for {patternId}
-            let updatedUrl = url.replace('{patternId}', value);
-            
-            if(this.concreteSolutions) {
-                this.concreteSolutions = [];
-            }
-            
-            //get the concrete solutions of specific pattern
-            this.getConcreteSolutions(updatedUrl);
-            
-            let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates[i++];
-            if (this.concreteSolutions) {
-                this.concreteSolutions.forEach(concreteSolution => {
-                    // create Node
-                    let sourceTNodeTemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution, targetTNodeTemplate, key);
-                    this.currentTopologyTemplate.nodeTemplates.push(sourceTNodeTemplate);
-                    // create Relationship between created node and its pattern
-                    let tRelationshipTemplate: TRelationshipTemplate = this.createTRelationshipTemplate(sourceTNodeTemplate, targetTNodeTemplate, index++);
-                    this.currentTopologyTemplate.relationshipTemplates.push(tRelationshipTemplate);
-
-                });
-            }
-            
-        });
-        console.log(this.currentTopologyTemplateBeforGernerationOfSolutionLanguage);
-        this.saveTopologyTemplateToRepository();
+    }
+    
+    generateSolutionLanguage(): void {
+        if (this.alreadyGeneratedSolutionLanguage) {
+            this.regenerateSolutionLanguage();
+        } else {// Generate Solution Language
+            this.alreadyGeneratedSolutionLanguage = true;
+            this.saveTheStateOfTopology();
+            this.saveTopologyTemplateToRepository();
+            this.iterateOverCurrentNodes(this.currentTopologyTemplate.nodeTemplates);
+            this.saveTopologyTemplateToRepository();
+        }
     }
 
     private createTRelationshipTemplate(sourceTNodeTemplate: TNodeTemplate, targetTNodeTemplate: TNodeTemplate, index: number): TRelationshipTemplate {
@@ -599,5 +562,30 @@ export class NavbarComponent implements OnDestroy {
             this.backendService.configuration.ns,
             'servicetemplates'
         );
+    }
+
+    private saveTheStateOfTopology(): void {
+        this.backupNodeTemplates = JSON.parse(JSON.stringify(this.currentTopologyTemplate.nodeTemplates));
+        this.backupRelationshipTemplates = JSON.parse(JSON.stringify(this.currentTopologyTemplate.relationshipTemplates));
+    }
+
+    private restoreTemplateState(): void {
+        if (this.backupNodeTemplates && this.backupRelationshipTemplates) {
+            this.currentTopologyTemplate.nodeTemplates = [];
+            this.currentTopologyTemplate.nodeTemplates = JSON.parse(JSON.stringify(this.backupNodeTemplates));
+            this.currentTopologyTemplate.relationshipTemplates = [];
+            this.currentTopologyTemplate.relationshipTemplates = JSON.parse(JSON.stringify(this.backupRelationshipTemplates));
+        } else {
+            console.log("No Backup found!")
+        }
+        
+    }
+
+    private iterateOverCurrentNodes(nodeTemplates: Array<TNodeTemplate>) {
+        for (let i = 0; i < nodeTemplates.length; i++) {
+            //TODO
+            let targetTNodeTemplate: TNodeTemplate = nodeTemplates[i];
+            
+        }
     }
 }
