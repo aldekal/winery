@@ -72,6 +72,7 @@ export class NavbarComponent implements OnDestroy {
 
     navbarButtonsState: TopologyRendererState;
     currentTopologyTemplate: TTopologyTemplate;
+    currentTopologyTemplateBeforGernerationOfSolutionLanguage: TTopologyTemplate;
     subscriptions: Array<Subscription> = [];
     exportCsarUrl: string;
     splittingOngoing: boolean;
@@ -85,6 +86,7 @@ export class NavbarComponent implements OnDestroy {
     concreteSolutions: ConcreteSolutionDto[];
     patternsAndIds: Map<string, string>;
     private static idCounter: number = 0;
+    alreadyGeneratedSolutionLanguage: boolean = false;
 
     @ViewChild('exportCsarButton')
     private exportCsarButtonRef: ElementRef;
@@ -454,16 +456,20 @@ export class NavbarComponent implements OnDestroy {
             this.getConcreteSolutions(updatedUrl);
             
             let targetTNodeTemplate: TNodeTemplate = this.currentTopologyTemplate.nodeTemplates[i++];
-            this.concreteSolutions.forEach(concreteSolution => {
-                // create Node
-                let sourceTNodeTemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution, targetTNodeTemplate, key);
-                this.currentTopologyTemplate.nodeTemplates.push(sourceTNodeTemplate);
-                // create Relationship between created node and its pattern
-                let tRelationshipTemplate: TRelationshipTemplate = this.createTRelationshipTemplate(sourceTNodeTemplate, targetTNodeTemplate, index++);
-                this.currentTopologyTemplate.relationshipTemplates.push(tRelationshipTemplate);
-                
-            });
+            if (this.concreteSolutions) {
+                this.concreteSolutions.forEach(concreteSolution => {
+                    // create Node
+                    let sourceTNodeTemplate: TNodeTemplate = this.createTNodeTemplate(concreteSolution, targetTNodeTemplate, key);
+                    this.currentTopologyTemplate.nodeTemplates.push(sourceTNodeTemplate);
+                    // create Relationship between created node and its pattern
+                    let tRelationshipTemplate: TRelationshipTemplate = this.createTRelationshipTemplate(sourceTNodeTemplate, targetTNodeTemplate, index++);
+                    this.currentTopologyTemplate.relationshipTemplates.push(tRelationshipTemplate);
+
+                });
+            }
+            
         });
+        console.log(this.currentTopologyTemplateBeforGernerationOfSolutionLanguage);
         this.saveTopologyTemplateToRepository();
     }
 
@@ -504,7 +510,7 @@ export class NavbarComponent implements OnDestroy {
             "#2602fa",
             type,
             null,
-            "http://localhost:8080/winery/nodetypes/https%253A%252F%252Fbloqcat.github.io%252Ftosca%252Fnodetypes%252Fscc/bloqcat_latest-w1-wip1/appearance/50x50");
+            "localhost:8080/winery/nodetypes/https%253A%252F%252Fbloqcat.github.io%252Ftosca%252Fnodetypes%252Fcss/bloqcat_latest-w1-wip1/appearance/50x50");
         
         const x: number = targetTNodeTemplate.x;
         const y: number = targetTNodeTemplate.y + 200;
