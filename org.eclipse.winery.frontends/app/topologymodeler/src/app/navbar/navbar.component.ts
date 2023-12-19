@@ -414,7 +414,7 @@ export class NavbarComponent implements OnDestroy {
     }
     
     async deploy() {
-        let url = 'http://localhost:5000/api/';
+        let url = 'http://localhost:5000/api/v1/bloqcat/winery/topology/deploy/json';
         try {
             const response = await fetch(url, {
                 method: 'POST',
