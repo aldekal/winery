@@ -412,9 +412,34 @@ export class NavbarComponent implements OnDestroy {
             }
         }
     }
+    
+    async deploy() {
+        let url = 'http://localhost:5000/api/';
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.currentTopologyTemplate)
+            });
+            if (!response.ok) {
+                this.alert.error('<p>Deploy the topology!<br>' + 'Response Status: '
+                    + response.statusText + ' ' + response.status + '</p>');
+                throw new Error(`HTTP Error: ${response.status}`);
+            } else {
+                const data = await response.text();
+                console.log('POST successful:', data);
+                this.alert.success('<p>Deploy the topology!<br>' + 'Response Status: '
+                    + response.statusText + ' ' + response.status + '</p>');
+            }
+        } catch (error) {
+            console.error('Error during POST request:', error);
+        }
+    }
 
     /**
-     * TODO Docu.
+     * TODO: double nodes, refresh (rerender), regenerate (save the state)
      */
     generateSolutionLanguage() {
         let index = 0;
@@ -471,6 +496,7 @@ export class NavbarComponent implements OnDestroy {
         });
         console.log(this.currentTopologyTemplateBeforGernerationOfSolutionLanguage);
         this.saveTopologyTemplateToRepository();
+        this.ngRedux.dispatch(this.actions.toggleTypes());
     }
 
     private createTRelationshipTemplate(sourceTNodeTemplate: TNodeTemplate, targetTNodeTemplate: TNodeTemplate, index: number): TRelationshipTemplate {
